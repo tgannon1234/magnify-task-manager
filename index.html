@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Magnify Wealth — Task Manager</title>
+<style>
+  :root {
+    --blue: #185FA5;
+    --blue-dark: #0C447C;
+    --blue-light: #E6F1FB;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+    --orange: #854F0B;
+    --orange-light: #FAEEDA;
+    --green: #3B6D11;
+    --green-light: #EAF3DE;
+    --grey: #5F5E5A;
+    --grey-light: #F1EFE8;
+    --border: #E2E0D8;
+    --border-light: #EDEBE5;
+    --bg: #FFFFFF;
+    --bg-secondary: #F8F7F4;
+    --text: #1A1917;
+    --text-secondary: #6B6965;
+    --radius: 6px;
+    --radius-lg: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.10);
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); font-size: 14px; color: var(--text); background: var(--bg-secondary); min-height: 100vh; }
+
+  /* Auth */
+  .auth-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:2rem; }
+  .auth-card { background:var(--bg); border-radius:var(--radius-lg); border:1px solid var(--border); padding:2.5rem; max-width:400px; width:100%; text-align:center; box-shadow:var(--shadow-lg); }
+  .auth-logo { width:52px; height:52px; background:var(--blue); border-radius:12px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:1.25rem; }
+  .auth-logo svg { width:26px; height:26px; fill:white; }
+  .auth-card h1 { font-size:20px; font-weight:600; margin-bottom:6px; }
+  .auth-card p { font-size:13px; color:var(--text-secondary); margin-bottom:1.75rem; line-height:1.5; }
+  .btn-ms { display:inline-flex; align-items:center; gap:10px; padding:11px 22px; background:var(--blue); color:white; border:none; border-radius:var(--radius); font-size:14px; font-family:var(--font); cursor:pointer; font-weight:500; }
+  .btn-ms:hover { background:var(--blue-dark); }
+  .auth-error { background:var(--red-light); color:var(--red); border-radius:var(--radius); padding:10px 14px; font-size:13px; margin-top:1rem; display:none; }
+
+  /* App */
+  .app { display:none; flex-direction:column; min-height:100vh; }
+  .app.visible { display:flex; }
+  .topbar { background:var(--bg); border-bottom:1px solid var(--border); padding:0 1.5rem; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
+  .topbar-left { display:flex; align-items:center; gap:12px; }
+  .topbar-logo { width:28px; height:28px; background:var(--blue); border-radius:6px; display:flex; align-items:center; justify-content:center; }
+  .topbar-logo svg { width:14px; height:14px; fill:white; }
+  .topbar-title { font-size:15px; font-weight:600; }
+  .topbar-sub { font-size:12px; color:var(--text-secondary); }
+  .topbar-right { display:flex; align-items:center; gap:8px; }
+  .user-pill { display:flex; align-items:center; gap:8px; padding:4px 10px; border-radius:20px; background:var(--bg-secondary); font-size:12px; color:var(--text-secondary); border:1px solid var(--border); }
+  .user-av { width:22px; height:22px; border-radius:50%; background:var(--blue); color:white; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center; }
+  .saving-pill { font-size:11px; color:var(--text-secondary); display:none; align-items:center; gap:5px; }
+
+  .main { padding:1.5rem; flex:1; max-width:1200px; width:100%; margin:0 auto; }
+
+  /* Cards */
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:1.5rem; }
+  .card { background:var(--bg); border-radius:var(--radius-lg); border:1px solid var(--border); padding:16px 20px; box-shadow:var(--shadow); }
+  .card-label { font-size:11px; font-weight:500; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .card-value { font-size:28px; font-weight:600; }
+  .card-value.red { color:var(--red); }
+
+  /* Toolbar */
+  .toolbar { background:var(--bg); border-radius:var(--radius-lg); border:1px solid var(--border); padding:12px 16px; margin-bottom:1rem; display:flex; gap:10px; flex-wrap:wrap; align-items:center; box-shadow:var(--shadow); }
+  .search-wrap { position:relative; flex:1; min-width:180px; }
+  .search-wrap svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:var(--text-secondary); pointer-events:none; }
+  .search-input { width:100%; padding:7px 10px 7px 32px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; font-family:var(--font); color:var(--text); background:var(--bg-secondary); }
+  .search-input:focus { outline:none; border-color:var(--blue); background:var(--bg); }
+  select.filter { padding:7px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; font-family:var(--font); color:var(--text); background:var(--bg-secondary); cursor:pointer; }
+  .toolbar-actions { display:flex; gap:8px; margin-left:auto; }
+
+  /* Buttons */
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg); color:var(--text); font-size:13px; font-family:var(--font); cursor:pointer; font-weight:500; white-space:nowrap; }
+  .btn:hover { background:var(--bg-secondary); }
+  .btn svg { width:14px; height:14px; }
+  .btn-primary { background:var(--blue); color:white; border-color:var(--blue); }
+  .btn-primary:hover { background:var(--blue-dark); border-color:var(--blue-dark); }
+  .btn-sm { padding:4px 8px; font-size:12px; }
+  .btn-danger { color:var(--red); border-color:#F0BEBE; }
+  .btn-danger:hover { background:var(--red-light); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+
+  /* Table */
+  .table-wrap { background:var(--bg); border-radius:var(--radius-lg); border:1px solid var(--border); overflow:hidden; box-shadow:var(--shadow); }
+  table { width:100%; border-collapse:collapse; table-layout:fixed; }
+  thead th { font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.06em; padding:10px 14px; border-bottom:1px solid var(--border); background:var(--bg-secondary); text-align:left; }
+  tbody tr { border-bottom:1px solid var(--border-light); }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:var(--bg-secondary); }
+  tbody td { padding:12px 14px; font-size:13px; vertical-align:middle; }
+  th:nth-child(1),td:nth-child(1){ width:34%; }
+  th:nth-child(2),td:nth-child(2){ width:17%; }
+  th:nth-child(3),td:nth-child(3){ width:13%; }
+  th:nth-child(4),td:nth-child(4){ width:12%; }
+  th:nth-child(5),td:nth-child(5){ width:13%; }
+  th:nth-child(6),td:nth-child(6){ width:11%; text-align:right; }
+  .task-title { font-weight:500; word-break:break-word; }
+  .row-actions { display:flex; gap:4px; justify-content:flex-end; opacity:0; }
+  tbody tr:hover .row-actions { opacity:1; }
+
+  /* Badges */
+  .badge { display:inline-flex; align-items:center; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:500; white-space:nowrap; }
+  .b-high { background:var(--red-light); color:var(--red); }
+  .b-medium { background:var(--orange-light); color:var(--orange); }
+  .b-low { background:var(--green-light); color:var(--green); }
+  .b-todo { background:var(--grey-light); color:var(--grey); }
+  .b-progress { background:var(--blue-light); color:var(--blue); }
+  .b-done { background:var(--green-light); color:var(--green); }
+  .b-blocked { background:var(--red-light); color:var(--red); }
+
+  /* Avatars */
+  .assignee-cell { display:flex; align-items:center; gap:8px; }
+  .av { width:26px; height:26px; border-radius:50%; font-size:10px; font-weight:600; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .av-sg { background:#EEEDFE; color:#3C3489; }
+  .av-tg { background:var(--blue-light); color:var(--blue-dark); }
+  .av-cg { background:#E1F5EE; color:#085041; }
+  .av-cm { background:var(--orange-light); color:#633806; }
+  .av-un { background:var(--grey-light); color:var(--grey); }
+
+  /* Empty */
+  .empty { padding:4rem 2rem; text-align:center; color:var(--text-secondary); }
+  .empty svg { width:36px; height:36px; opacity:.3; margin:0 auto 12px; display:block; }
+
+  /* Modal */
+  .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:100; padding:1rem; }
+  .modal { background:var(--bg); border-radius:var(--radius-lg); border:1px solid var(--border); padding:1.75rem; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); }
+  .modal h2 { font-size:17px; font-weight:600; margin-bottom:1.25rem; }
+  .modal-wide { max-width:580px; }
+  .fg { margin-bottom:1.1rem; }
+  .fg label { display:block; font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:5px; text-transform:uppercase; letter-spacing:.06em; }
+  .fg input,.fg select,.fg textarea { width:100%; padding:8px 11px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; font-family:var(--font); color:var(--text); background:var(--bg); }
+  .fg input:focus,.fg select:focus,.fg textarea:focus { outline:none; border-color:var(--blue); }
+  .fg textarea { resize:vertical; min-height:90px; }
+  .frow { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border-light); }
+
+  /* Fathom */
+  .meeting-list { max-height:320px; overflow-y:auto; margin-bottom:1rem; }
+  .meeting-item { padding:11px 14px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:6px; cursor:pointer; }
+  .meeting-item:hover,.meeting-item.selected { border-color:var(--blue); background:var(--blue-light); }
+  .meeting-title { font-weight:500; font-size:13px; margin-bottom:3px; }
+  .meeting-meta { font-size:12px; color:var(--text-secondary); display:flex; gap:10px; }
+  .prev-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .prev-table th { background:var(--bg-secondary); padding:7px 10px; text-align:left; font-weight:600; color:var(--text-secondary); font-size:11px; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); }
+  .prev-table td { padding:8px 10px; border-bottom:1px solid var(--border-light); word-break:break-word; }
+
+  /* Info / loading */
+  .infobox { background:var(--blue-light); color:var(--blue-dark); border-radius:var(--radius); padding:10px 14px; font-size:13px; line-height:1.5; margin-bottom:1.1rem; }
+  .loading-box { text-align:center; padding:2.5rem 1.5rem; }
+  .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; margin:0 auto 14px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Toast */
+  .toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(10px); background:#1A1917; color:white; padding:10px 20px; border-radius:var(--radius); font-size:13px; font-weight:500; z-index:300; opacity:0; transition:opacity .25s,transform .25s; pointer-events:none; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .overdue { color:var(--red); font-weight:500; }
+
+  @media(max-width:700px){
+    .cards { grid-template-columns:repeat(2,1fr); }
+    .toolbar { flex-direction:column; align-items:stretch; }
+    .toolbar-actions { margin-left:0; }
+    th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4){ display:none; }
+    th:nth-child(1),td:nth-child(1){ width:48%; }
+    th:nth-child(2),td:nth-child(2){ width:24%; }
+    th:nth-child(5),td:nth-child(5){ width:16%; }
+    th:nth-child(6),td:nth-child(6){ width:12%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+    </div>
+    <h1>Magnify Wealth</h1>
+    <p>Task Manager — sign in with your Microsoft account to continue.</p>
+    <button class="btn-ms" onclick="signIn()">
+      <svg viewBox="0 0 23 23" width="18" height="18"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg>
+      Sign in with Microsoft
+    </button>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+      <div><div class="topbar-title">Task Manager</div><div class="topbar-sub">Magnify Wealth</div></div>
+    </div>
+    <div class="topbar-right">
+      <div class="saving-pill" id="savingPill">Saving…</div>
+      <div class="user-pill"><div class="user-av" id="userAv">?</div><span id="userName">…</span></div>
+      <button class="btn btn-sm" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="cards">
+      <div class="card"><div class="card-label">To do</div><div class="card-value" id="cTodo">—</div></div>
+      <div class="card"><div class="card-label">In progress</div><div class="card-value" id="cProgress">—</div></div>
+      <div class="card"><div class="card-label">Done</div><div class="card-value" id="cDone">—</div></div>
+      <div class="card"><div class="card-label">Overdue</div><div class="card-value" id="cOverdue">—</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" id="searchInput" type="text" placeholder="Search tasks…" oninput="renderTable()"/>
+      </div>
+      <select class="filter" id="fAssignee" onchange="renderTable()">
+        <option value="all">All members</option>
+        <option value="sg">Scott Gannon</option>
+        <option value="tg">Tammy Gannon</option>
+        <option value="cg">Cameron Gannon</option>
+        <option value="cm">Cindy Metz</option>
+      </select>
+      <select class="filter" id="fStatus" onchange="renderTable()">
+        <option value="all">All statuses</option>
+        <option>To do</option><option>In progress</option><option>Done</option><option>Blocked</option>
+      </select>
+      <select class="filter" id="fPriority" onchange="renderTable()">
+        <option value="all">All priorities</option>
+        <option>High</option><option>Medium</option><option>Low</option>
+      </select>
+      <div class="toolbar-actions">
+        <button class="btn" onclick="openFathom()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import from Fathom
+        </button>
+        <button class="btn" onclick="exportCSV()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-primary" onclick="openAdd()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New task
+        </button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Task</th><th>Assignee</th><th>Due date</th><th>Priority</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Task modal -->
+<div class="modal-backdrop" id="taskModal" style="display:none" onclick="if(event.target===this)closeTask()">
+  <div class="modal">
+    <h2 id="taskTitle2">New task</h2>
+    <div class="fg"><label>Task title</label><input type="text" id="tTitle" placeholder="What needs to be done?"/></div>
+    <div class="frow">
+      <div class="fg"><label>Assignee</label>
+        <select id="tAssignee">
+          <option value="">Unassigned</option>
+          <option value="sg">Scott Gannon</option>
+          <option value="tg">Tammy Gannon</option>
+          <option value="cg">Cameron Gannon</option>
+          <option value="cm">Cindy Metz</option>
+        </select>
+      </div>
+      <div class="fg"><label>Due date</label><input type="date" id="tDue"/></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Priority</label>
+        <select id="tPriority"><option>High</option><option selected>Medium</option><option>Low</option></select>
+      </div>
+      <div class="fg"><label>Status</label>
+        <select id="tStatus"><option>To do</option><option>In progress</option><option>Done</option><option>Blocked</option></select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeTask()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTask()" id="tSaveBtn">Add task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fathom modal -->
+<div class="modal-backdrop" id="fathomModal" style="display:none" onclick="if(event.target===this)closeFathom()">
+  <div class="modal modal-wide" id="fathomInner"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const CLIENT_ID   = '9b9acc4d-d9db-4a7a-baee-8db1d82819af';
+const TENANT_ID   = 'f5295246-73db-4b57-9ff9-aaf74201c02e';
+const SCOPES      = ['Files.ReadWrite.All','User.Read','Sites.ReadWrite.All'];
+const REDIRECT    = window.location.href.split('?')[0].split('#')[0];
+const DATA_FILE   = 'magnify-tasks.json';
+const SP_HOST     = 'magnifywealth.sharepoint.com';
+const SP_SITE     = '/sites/MagnifyWealthTaskManager';
+const SP_LIB      = 'Shared Documents';
+const TEAM = [
+  {id:'sg',name:'Scott Gannon',  ini:'SG',cls:'av-sg'},
+  {id:'tg',name:'Tammy Gannon',  ini:'TG',cls:'av-tg'},
+  {id:'cg',name:'Cameron Gannon',ini:'CG',cls:'av-cg'},
+  {id:'cm',name:'Cindy Metz',    ini:'CM',cls:'av-cm'},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let token=null, tasks=[], nextId=100, editId=null;
+let fMeetings=[], fSelected=null, fPreview=null, fStep='select';
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function signIn(){
+  const p=new URLSearchParams({
+    client_id:CLIENT_ID, response_type:'token',
+    redirect_uri:REDIRECT, scope:SCOPES.join(' '),
+    response_mode:'fragment', nonce:Math.random().toString(36).slice(2),
+  });
+  window.location.href=`https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/authorize?${p}`;
+}
+function signOut(){
+  token=null; sessionStorage.removeItem('mw_tok');
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('authScreen').style.display='flex';
+}
+async function handleAuth(){
+  const hash=window.location.hash.substring(1);
+  const p=new URLSearchParams(hash);
+  if(p.get('access_token')){
+    token=p.get('access_token');
+    sessionStorage.setItem('mw_tok',token);
+    window.history.replaceState(null,'',window.location.pathname);
+  } else if(p.get('error')){
+    const err=document.getElementById('authError');
+    err.textContent='Sign-in error: '+p.get('error_description');
+    err.style.display='block';
+    return;
+  } else {
+    token=sessionStorage.getItem('mw_tok');
+  }
+  if(token) await initApp();
+}
+async function initApp(){
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  try{
+    const u=await api('GET','/me');
+    const name=u.displayName||u.userPrincipalName||'User';
+    document.getElementById('userName').textContent=name.split(' ')[0];
+    document.getElementById('userAv').textContent=name.split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase();
+  }catch(e){}
+  await loadTasks();
+}
+
+// ── GRAPH ─────────────────────────────────────────────────────────────────────
+async function api(method,path,body){
+  const r=await fetch(`https://graph.microsoft.com/v1.0${path}`,{
+    method,
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body:body?JSON.stringify(body):undefined,
+  });
+  if(r.status===401){signOut();throw new Error('Session expired');}
+  if(r.status===204||r.status===202)return null;
+  const t2=await r.text();
+  return t2?JSON.parse(t2):null;
+}
+async function getSiteId(){
+  const r=await api('GET',`/sites/${SP_HOST}:${SP_SITE}`);
+  return r.id;
+}
+async function getDriveId(siteId){
+  const r=await api('GET',`/sites/${siteId}/drives`);
+  const d=r.value.find(d=>d.name===SP_LIB)||r.value[0];
+  return d.id;
+}
+async function loadTasks(){
+  try{
+    const sid=await getSiteId();
+    const did=await getDriveId(sid);
+    try{
+      const f=await api('GET',`/drives/${did}/root:/${DATA_FILE}`);
+      const d=await fetch(f['@microsoft.graph.downloadUrl']).then(r=>r.json());
+      tasks=d.tasks||[]; nextId=d.nextId||100;
+    }catch(e){ tasks=[]; nextId=100; }
+  }catch(e){ console.error('Load',e); tasks=[]; }
+  renderAll();
+}
+async function saveTasks(){
+  document.getElementById('savingPill').style.display='flex';
+  try{
+    const sid=await getSiteId();
+    const did=await getDriveId(sid);
+    await fetch(`https://graph.microsoft.com/v1.0/drives/${did}/root:/${DATA_FILE}:/content`,{
+      method:'PUT',
+      headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({tasks,nextId},null,2),
+    });
+  }catch(e){console.error('Save',e);toast('Save failed — check your connection');}
+  finally{document.getElementById('savingPill').style.display='none';}
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function mem(id){return TEAM.find(m=>m.id===id)||{name:'Unassigned',ini:'?',cls:'av-un'};}
+function wk(){const d=new Date();d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);}
+function fmtD(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'});}
+function isOD(d){if(!d)return false;return new Date(d+'T00:00:00')<new Date(new Date().toDateString());}
+function bPri(p){const m={High:'b-high',Medium:'b-medium',Low:'b-low'};return`<span class="badge ${m[p]||'b-medium'}">${p||'Medium'}</span>`;}
+function bSta(s){const m={'To do':'b-todo','In progress':'b-progress','Done':'b-done','Blocked':'b-blocked'};return`<span class="badge ${m[s]||'b-todo'}">${s}</span>`;}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function filtered(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const fa=document.getElementById('fAssignee').value;
+  const fs=document.getElementById('fStatus').value;
+  const fp=document.getElementById('fPriority').value;
+  return tasks.filter(t=>{
+    if(fa!=='all'&&t.assignee!==fa)return false;
+    if(fs!=='all'&&t.status!==fs)return false;
+    if(fp!=='all'&&t.priority!==fp)return false;
+    if(q&&!t.title.toLowerCase().includes(q))return false;
+    return true;
+  });
+}
+function renderAll(){renderStats();renderTable();}
+function renderStats(){
+  const todo=tasks.filter(t=>t.status==='To do').length;
+  const prog=tasks.filter(t=>t.status==='In progress').length;
+  const done=tasks.filter(t=>t.status==='Done').length;
+  const od=tasks.filter(t=>isOD(t.due)&&t.status!=='Done').length;
+  document.getElementById('cTodo').textContent=todo;
+  document.getElementById('cProgress').textContent=prog;
+  document.getElementById('cDone').textContent=done;
+  document.getElementById('cOverdue').textContent=od;
+  document.getElementById('cOverdue').className='card-value'+(od>0?' red':'');
+}
+function renderTable(){
+  const ft=filtered();
+  const tb=document.getElementById('tbody');
+  if(!ft.length){
+    tb.innerHTML=`<tr><td colspan="6"><div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+      <p>No tasks match your filters.</p></div></td></tr>`;
+    renderStats();return;
+  }
+  tb.innerHTML=ft.map(t=>{
+    const m=mem(t.assignee),ov=isOD(t.due)&&t.status!=='Done';
+    return`<tr>
+      <td class="task-title">${esc(t.title)}</td>
+      <td><div class="assignee-cell"><span class="av ${m.cls}">${m.ini}</span>${m.name}</div></td>
+      <td class="${ov?'overdue':''}">${fmtD(t.due)}${ov?' ⚠':''}</td>
+      <td>${bPri(t.priority)}</td>
+      <td>${bSta(t.status)}</td>
+      <td><div class="row-actions">
+        <button class="btn btn-sm" onclick="openEdit(${t.id})" title="Edit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="delTask(${t.id})" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        </button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  renderStats();
+}
+
+// ── TASK CRUD ─────────────────────────────────────────────────────────────────
+function openAdd(){
+  editId=null;
+  document.getElementById('taskTitle2').textContent='New task';
+  document.getElementById('tSaveBtn').textContent='Add task';
+  document.getElementById('tTitle').value='';
+  document.getElementById('tAssignee').value='';
+  document.getElementById('tDue').value='';
+  document.getElementById('tPriority').value='Medium';
+  document.getElementById('tStatus').value='To do';
+  document.getElementById('taskModal').style.display='flex';
+  document.getElementById('tTitle').focus();
+}
+function openEdit(id){
+  const t=tasks.find(t=>t.id===id);if(!t)return;
+  editId=id;
+  document.getElementById('taskTitle2').textContent='Edit task';
+  document.getElementById('tSaveBtn').textContent='Save changes';
+  document.getElementById('tTitle').value=t.title;
+  document.getElementById('tAssignee').value=t.assignee||'';
+  document.getElementById('tDue').value=t.due||'';
+  document.getElementById('tPriority').value=t.priority;
+  document.getElementById('tStatus').value=t.status;
+  document.getElementById('taskModal').style.display='flex';
+  document.getElementById('tTitle').focus();
+}
+function closeTask(){document.getElementById('taskModal').style.display='none';editId=null;}
+async function saveTask(){
+  const title=document.getElementById('tTitle').value.trim();
+  if(!title){document.getElementById('tTitle').focus();return;}
+  const d={title,assignee:document.getElementById('tAssignee').value,due:document.getElementById('tDue').value,priority:document.getElementById('tPriority').value,status:document.getElementById('tStatus').value};
+  if(editId!==null){const i=tasks.findIndex(t=>t.id===editId);tasks[i]={...tasks[i],...d};}
+  else tasks.unshift({id:nextId++,...d,created:Date.now()});
+  closeTask();renderAll();
+  await saveTasks();
+  toast(editId!==null?'Task updated':'Task added');
+}
+async function delTask(id){
+  if(!confirm('Delete this task?'))return;
+  tasks=tasks.filter(t=>t.id!==id);
+  renderAll();await saveTasks();toast('Task deleted');
+}
+
+// ── CSV ───────────────────────────────────────────────────────────────────────
+function exportCSV(){
+  const rows=[['Title','Assignee','Due Date','Priority','Status']];
+  tasks.forEach(t=>rows.push([`"${t.title.replace(/"/g,'""')}"`,mem(t.assignee).name,t.due||'',t.priority,t.status]));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
+  a.download='magnify-tasks.csv';a.click();
+}
+
+// ── FATHOM ────────────────────────────────────────────────────────────────────
+function openFathom(){
+  fStep='select';fSelected=null;fPreview=null;
+  renderFathom();
+  document.getElementById('fathomModal').style.display='flex';
+  // Signal Claude to load meetings
+  window._fathomPending='load';
+}
+function closeFathom(){
+  document.getElementById('fathomModal').style.display='none';
+  fMeetings=[];fSelected=null;fPreview=null;
+}
+function renderFathom(){
+  const el=document.getElementById('fathomInner');
+  if(fStep==='select'){
+    if(!fMeetings.length){
+      el.innerHTML=`<div class="loading-box"><div class="spinner"></div><p>Loading your meetings…</p><small>Fetching from Fathom via Claude</small></div>
+      <p style="font-size:12px;color:var(--text-secondary);text-align:center;margin-top:8px">👉 In the Claude chat below, type: <strong>FATHOM_LOAD_MEETINGS</strong></p>`;
+    } else {
+      el.innerHTML=`
+        <h2>Import from Fathom</h2>
+        <div class="infobox">Select a meeting to extract action items. Client and prospect items route to Cindy automatically. Tasks without a due date default to 1 week from today.</div>
+        <div class="meeting-list">${fMeetings.map(m=>`
+          <div class="meeting-item${fSelected&&fSelected.id===m.id?' selected':''}" onclick="selectMeeting(${m.id})">
+            <div class="meeting-title">${esc(m.title)}</div>
+            <div class="meeting-meta"><span>${m.date}</span><span>${esc(m.recorded_by)}</span>${m.action_item_count?`<span>${m.action_item_count} action item${m.action_item_count!==1?'s':''}</span>`:''}</div>
+          </div>`).join('')}
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="closeFathom()">Cancel</button>
+          <button class="btn btn-primary" onclick="doExtract()" ${!fSelected?'disabled':''}>Extract tasks ↗</button>
+        </div>`;
+    }
+  }
+  if(fStep==='loading'){
+    el.innerHTML=`<div class="loading-box"><div class="spinner"></div><p>Extracting action items…</p><small>Reading your meeting notes via Claude</small></div>
+    <p style="font-size:12px;color:var(--text-secondary);text-align:center;margin-top:8px">👉 In the Claude chat below, type: <strong>FATHOM_EXTRACT:${JSON.stringify(fSelected)}</strong></p>`;
+  }
+  if(fStep==='preview'&&fPreview){
+    el.innerHTML=`
+      <h2>Review ${fPreview.length} extracted task${fPreview.length!==1?'s':''}</h2>
+      <div style="overflow-y:auto;max-height:320px;margin-bottom:1rem">
+        <table class="prev-table">
+          <thead><tr><th>Task</th><th>Assignee</th><th>Due</th><th>Priority</th></tr></thead>
+          <tbody>${fPreview.map(t=>{const m=mem(t.assignee);return`<tr>
+            <td>${esc(t.title)}</td>
+            <td><div class="assignee-cell"><span class="av ${m.cls}" style="width:20px;height:20px;font-size:8px">${m.ini}</span>${m.name}</div></td>
+            <td style="white-space:nowrap">${fmtD(t.due)}</td>
+            <td>${bPri(t.priority)}</td>
+          </tr>`;}).join('')}</tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeFathom()">Cancel</button>
+        <button class="btn btn-primary" onclick="commitFathom()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+          Add ${fPreview.length} task${fPreview.length!==1?'s':''}
+        </button>
+      </div>`;
+  }
+}
+function selectMeeting(id){fSelected=fMeetings.find(m=>m.id===id);renderFathom();}
+function doExtract(){if(!fSelected)return;fStep='loading';renderFathom();}
+async function commitFathom(){
+  fPreview.forEach(item=>tasks.unshift({id:nextId++,...item,status:'To do',created:Date.now()}));
+  nextId=Math.max(nextId,...tasks.map(t=>t.id+1));
+  const n=fPreview.length;
+  closeFathom();renderAll();
+  await saveTasks();
+  toast(`${n} task${n!==1?'s':''} added`);
+}
+
+// Called externally by Claude
+window.loadFathomMeetings=function(json){
+  try{fMeetings=JSON.parse(json);fStep='select';renderFathom();}catch(e){console.error(e);}
+};
+window.loadFathomPreview=function(json){
+  try{
+    const items=JSON.parse(json);
+    if(!items.length){closeFathom();toast('No action items found in this meeting');return;}
+    fPreview=items.map(i=>({title:i.title||'Untitled',assignee:i.assignee||'',due:i.due||wk(),priority:i.priority||'Medium'}));
+    fStep='preview';renderFathom();
+  }catch(e){console.error(e);closeFathom();toast('Could not load preview');}
+};
+
+// ── KEYBOARD ──────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeTask();closeFathom();}
+  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){
+    if(document.getElementById('taskModal').style.display!=='none')saveTask();
+  }
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+handleAuth();
+</script>
+</body>
+</html>
