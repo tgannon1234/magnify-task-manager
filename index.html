@@ -661,22 +661,36 @@ function extractZoom(){
   renderZoom();
 }
 function extractClientName(text){
-  // Look at first 8 lines for a meeting title containing the client's full name
-  const lines=text.split('\n').slice(0,8);
-  for(const line of lines){
+  const lines=text.split('\n');
+  const teamFirst=['scott','tammy','cameron','cindy'];
+
+  // 1. Best source: Participants line — exclude team members, return the outsider
+  const partLine=lines.find(l=>/^participants?\s*:/i.test(l.trim()));
+  if(partLine){
+    const names=partLine.replace(/^participants?\s*:\s*/i,'')
+      .split(/[,;]+/)
+      .map(n=>n.trim())
+      .filter(n=>n.length>1);
+    const client=names.find(n=>!teamFirst.some(fn=>n.toLowerCase().startsWith(fn)));
+    if(client)return client;
+  }
+
+  // 2. Fallback: first 8 lines, various title patterns
+  const head=lines.slice(0,8);
+  for(const line of head){
     const t=line.trim();
     if(!t)continue;
-    // "Meeting with John Smith" / "Call with Jane Doe" / "Appointment with..."
+    // "Meeting with John Smith"
     const withMatch=t.match(/(?:meeting|call|appointment|session|catch[- ]?up|intro|review)\s+with\s+([A-Z][a-zA-Zé'\-]+(?:\s+[A-Z][a-zA-Zé'\-]+)+)/i);
     if(withMatch)return withMatch[1];
-    // "John Smith - Topic" — name at start before a dash
-    const dashStart=t.match(/^([A-Z][a-zA-Zé'\-]+(?:\s+[A-Z][a-zA-Zé'\-]+)+)\s*[-–—]/);
-    if(dashStart&&!/(meeting|call|zoom|review|session)/i.test(dashStart[1]))return dashStart[1];
-    // "Topic - John Smith" — name at end after a dash
-    const dashEnd=t.match(/[-–—]\s*([A-Z][a-zA-Zé'\-]+(?:\s+[A-Z][a-zA-Zé'\-]+)+)$/);
-    if(dashEnd&&!/(meeting|call|zoom|review|session)/i.test(dashEnd[1]))return dashEnd[1];
-    // Bare "John Smith" on its own line (2-3 capitalized words, no verbs)
-    const bare=t.match(/^([A-Z][a-zA-Zé'\-]+(?:\s+[A-Z][a-zA-Zé'\-]+){1,2})$/);
+    // "John Smith - Topic" — exactly two leading capitalized words before a dash
+    const dashStart=t.match(/^([A-Z][a-zA-Zé'\-]+\s+[A-Z][a-zA-Zé'\-]+)\s*[-–—]/);
+    if(dashStart)return dashStart[1];
+    // "Topic - John Smith" — exactly two trailing capitalized words after a dash
+    const dashEnd=t.match(/[-–—]\s*([A-Z][a-zA-Zé'\-]+\s+[A-Z][a-zA-Zé'\-]+)$/);
+    if(dashEnd)return dashEnd[1];
+    // Bare "First Last" (exactly two capitalized words) on its own line
+    const bare=t.match(/^([A-Z][a-zA-Zé'\-]+\s+[A-Z][a-zA-Zé'\-]+)$/);
     if(bare&&!/(meeting|call|zoom|review|session|summary|action|notes?|agenda)/i.test(bare[1]))return bare[1];
   }
   return null;
@@ -721,23 +735,26 @@ function parseZoomSummary(text){
   return items;
 }
 function parseActionItem(text,clientName){
-  // Detect assignee from team member first names
+  const clientFirst=clientName?clientName.split(' ')[0]:null;
+  // Build assignee detection map — include client's first name dynamically
+  const cindy=[/\bcindy\b/i,/\bclient\b/i,/\bprospect\b/i];
+  if(clientFirst)cindy.push(new RegExp(`\\b${clientFirst}\\b`,'i'));
   const nameMap=[
     {patterns:[/\bscott\b/i],id:'sg'},
     {patterns:[/\btammy\b/i],id:'tg'},
     {patterns:[/\bcameron\b/i],id:'cg'},
-    // Cindy or anything suggesting a client/prospect goes to Cindy
-    {patterns:[/\bcindy\b/i,/\bclient\b/i,/\bprospect\b/i],id:'cm'},
+    {patterns:cindy,id:'cm'},
   ];
   let assignee='';
   for(const entry of nameMap){
     if(entry.patterns.some(p=>p.test(text))){assignee=entry.id;break;}
   }
-  // Strip common name-prefix patterns
-  let title=text
-    .replace(/^(scott|tammy|cameron|cindy)\s*[:–\-]\s*/i,'')
-    .replace(/^(scott|tammy|cameron|cindy)\s+will\s+/i,'')
-    .replace(/^(scott|tammy|cameron|cindy)\s+to\s+/i,'');
+  // Strip common name-prefix patterns (team + client first name)
+  const teamNames='scott|tammy|cameron|cindy'+(clientFirst?'|'+clientFirst.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'):'');
+  const pfx=new RegExp(`^(${teamNames})\\s*[:–\\-]\\s*`,'i');
+  const will=new RegExp(`^(${teamNames})\\s+will\\s+`,'i');
+  const to=new RegExp(`^(${teamNames})\\s+to\\s+`,'i');
+  let title=text.replace(pfx,'').replace(will,'').replace(to,'');
   title=title.charAt(0).toUpperCase()+title.slice(1);
   // Prefix client/prospect tasks with the client's full name
   if(assignee==='cm'&&clientName){
