@@ -660,10 +660,32 @@ function extractZoom(){
   zStep='preview';
   renderZoom();
 }
+function extractClientName(text){
+  // Look at first 8 lines for a meeting title containing the client's full name
+  const lines=text.split('\n').slice(0,8);
+  for(const line of lines){
+    const t=line.trim();
+    if(!t)continue;
+    // "Meeting with John Smith" / "Call with Jane Doe" / "Appointment with..."
+    const withMatch=t.match(/(?:meeting|call|appointment|session|catch[- ]?up|intro|review)\s+with\s+([A-Z][a-zA-Zé'\-]+(?:\s+[A-Z][a-zA-Zé'\-]+)+)/i);
+    if(withMatch)return withMatch[1];
+    // "John Smith - Topic" — name at start before a dash
+    const dashStart=t.match(/^([A-Z][a-zA-Zé'\-]+(?:\s+[A-Z][a-zA-Zé'\-]+)+)\s*[-–—]/);
+    if(dashStart&&!/(meeting|call|zoom|review|session)/i.test(dashStart[1]))return dashStart[1];
+    // "Topic - John Smith" — name at end after a dash
+    const dashEnd=t.match(/[-–—]\s*([A-Z][a-zA-Zé'\-]+(?:\s+[A-Z][a-zA-Zé'\-]+)+)$/);
+    if(dashEnd&&!/(meeting|call|zoom|review|session)/i.test(dashEnd[1]))return dashEnd[1];
+    // Bare "John Smith" on its own line (2-3 capitalized words, no verbs)
+    const bare=t.match(/^([A-Z][a-zA-Zé'\-]+(?:\s+[A-Z][a-zA-Zé'\-]+){1,2})$/);
+    if(bare&&!/(meeting|call|zoom|review|session|summary|action|notes?|agenda)/i.test(bare[1]))return bare[1];
+  }
+  return null;
+}
 function parseZoomSummary(text){
   const lines=text.split('\n');
   const items=[];
   let inSection=false;
+  const clientName=extractClientName(text);
 
   // Headings that signal an action-item section
   const ACTION_START=/^(action items?|next steps?|to[- ]?dos?|tasks?|follow[- ]?ups?|commitments?)\s*:?\s*$/i;
@@ -681,7 +703,7 @@ function parseZoomSummary(text){
       const m=BULLET.exec(line);
       if(m){
         const raw=m[1].trim();
-        if(raw.length>=5)items.push(parseActionItem(raw));
+        if(raw.length>=5)items.push(parseActionItem(raw,clientName));
       }
     }
   }
@@ -692,13 +714,13 @@ function parseZoomSummary(text){
       const m=BULLET.exec(line);
       if(m){
         const raw=m[1].trim();
-        if(raw.length>=10)items.push(parseActionItem(raw));
+        if(raw.length>=10)items.push(parseActionItem(raw,clientName));
       }
     }
   }
   return items;
 }
-function parseActionItem(text){
+function parseActionItem(text,clientName){
   // Detect assignee from team member first names
   const nameMap=[
     {patterns:[/\bscott\b/i],id:'sg'},
@@ -717,6 +739,10 @@ function parseActionItem(text){
     .replace(/^(scott|tammy|cameron|cindy)\s+will\s+/i,'')
     .replace(/^(scott|tammy|cameron|cindy)\s+to\s+/i,'');
   title=title.charAt(0).toUpperCase()+title.slice(1);
+  // Prefix client/prospect tasks with the client's full name
+  if(assignee==='cm'&&clientName){
+    title=`Follow up on - ${clientName}: ${title}`;
+  }
   return{title,assignee,due:wk(),priority:'Medium'};
 }
 async function commitZoom(){
