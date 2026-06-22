@@ -104,6 +104,10 @@
   .row-actions { display:flex; gap:4px; justify-content:flex-end; opacity:0; }
   tbody tr:hover .row-actions { opacity:1; }
 
+  /* Note count indicator */
+  .note-chip { display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:400; color:var(--text-secondary); margin-left:7px; vertical-align:middle; }
+  .note-chip svg { width:11px; height:11px; }
+
   /* Badges */
   .badge { display:inline-flex; align-items:center; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:500; white-space:nowrap; }
   .b-high { background:var(--red-light); color:var(--red); }
@@ -140,15 +144,24 @@
   .frow { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border-light); }
 
-  /* Fathom */
-  .meeting-list { max-height:320px; overflow-y:auto; margin-bottom:1rem; }
-  .meeting-item { padding:11px 14px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:6px; cursor:pointer; }
-  .meeting-item:hover,.meeting-item.selected { border-color:var(--blue); background:var(--blue-light); }
-  .meeting-title { font-weight:500; font-size:13px; margin-bottom:3px; }
-  .meeting-meta { font-size:12px; color:var(--text-secondary); display:flex; gap:10px; }
+  /* Notes section */
+  .notes-section { margin-top:1.25rem; padding-top:1.25rem; border-top:1px solid var(--border-light); }
+  .notes-section h3 { font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; }
+  .note-list { max-height:220px; overflow-y:auto; margin-bottom:10px; }
+  .note-empty { font-size:12px; color:var(--text-secondary); text-align:center; padding:12px 0; }
+  .note-item { background:var(--bg-secondary); border-radius:var(--radius); padding:10px 12px; margin-bottom:7px; }
+  .note-meta { font-size:11px; color:var(--text-secondary); margin-bottom:4px; }
+  .note-text { font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+  .note-add { display:flex; gap:8px; align-items:flex-end; }
+  .note-add .fg { flex:1; margin-bottom:0; }
+  .note-add textarea { min-height:60px; }
+  .note-add .btn { flex-shrink:0; }
+
+  /* Zoom / import */
   .prev-table { width:100%; border-collapse:collapse; font-size:12px; }
   .prev-table th { background:var(--bg-secondary); padding:7px 10px; text-align:left; font-weight:600; color:var(--text-secondary); font-size:11px; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); }
-  .prev-table td { padding:8px 10px; border-bottom:1px solid var(--border-light); word-break:break-word; }
+  .prev-table td { padding:8px 10px; border-bottom:1px solid var(--border-light); word-break:break-word; vertical-align:middle; }
+  .prev-table input[type=checkbox] { cursor:pointer; width:15px; height:15px; }
 
   /* Info / loading */
   .infobox { background:var(--blue-light); color:var(--blue-dark); border-radius:var(--radius); padding:10px 14px; font-size:13px; line-height:1.5; margin-bottom:1.1rem; }
@@ -232,9 +245,9 @@
         <option>High</option><option>Medium</option><option>Low</option>
       </select>
       <div class="toolbar-actions">
-        <button class="btn" onclick="openFathom()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Import from Fathom
+        <button class="btn" onclick="openZoom()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.89L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+          Import from Zoom
         </button>
         <button class="btn" onclick="exportCSV()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -281,6 +294,17 @@
         <select id="tStatus"><option>To do</option><option>In progress</option><option>Done</option><option>Blocked</option></select>
       </div>
     </div>
+
+    <!-- Notes — only visible when editing an existing task -->
+    <div class="notes-section" id="notesSection" style="display:none">
+      <h3>Notes</h3>
+      <div class="note-list" id="noteList"></div>
+      <div class="note-add">
+        <div class="fg"><textarea id="noteInput" placeholder="Add a note…"></textarea></div>
+        <button class="btn" onclick="addNote()">Add note</button>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" onclick="closeTask()">Cancel</button>
       <button class="btn btn-primary" onclick="saveTask()" id="tSaveBtn">Add task</button>
@@ -288,9 +312,9 @@
   </div>
 </div>
 
-<!-- Fathom modal -->
-<div class="modal-backdrop" id="fathomModal" style="display:none" onclick="if(event.target===this)closeFathom()">
-  <div class="modal modal-wide" id="fathomInner"></div>
+<!-- Zoom import modal -->
+<div class="modal-backdrop" id="zoomModal" style="display:none" onclick="if(event.target===this)closeZoom()">
+  <div class="modal modal-wide" id="zoomInner"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -313,8 +337,8 @@ const TEAM = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
-let token=null, tasks=[], nextId=100, editId=null;
-let fMeetings=[], fSelected=null, fPreview=null, fStep='select';
+let token=null, tasks=[], nextId=100, editId=null, editNotes=[];
+let zStep='paste', zPreview=[];
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 function signIn(){
@@ -410,11 +434,13 @@ async function saveTasks(){
 function mem(id){return TEAM.find(m=>m.id===id)||{name:'Unassigned',ini:'?',cls:'av-un'};}
 function wk(){const d=new Date();d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);}
 function fmtD(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'});}
+function fmtDT(ts){return new Date(ts).toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
 function isOD(d){if(!d)return false;return new Date(d+'T00:00:00')<new Date(new Date().toDateString());}
 function bPri(p){const m={High:'b-high',Medium:'b-medium',Low:'b-low'};return`<span class="badge ${m[p]||'b-medium'}">${p||'Medium'}</span>`;}
 function bSta(s){const m={'To do':'b-todo','In progress':'b-progress','Done':'b-done','Blocked':'b-blocked'};return`<span class="badge ${m[s]||'b-todo'}">${s}</span>`;}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+function currentUserName(){const el=document.getElementById('userName');return el?el.textContent||'Team':'Team';}
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function filtered(){
@@ -451,10 +477,12 @@ function renderTable(){
       <p>No tasks match your filters.</p></div></td></tr>`;
     renderStats();return;
   }
+  const noteIcon=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
   tb.innerHTML=ft.map(t=>{
     const m=mem(t.assignee),ov=isOD(t.due)&&t.status!=='Done';
+    const nc=(t.notes&&t.notes.length)?`<span class="note-chip" title="${t.notes.length} note${t.notes.length!==1?'s':''}">${noteIcon}${t.notes.length}</span>`:'';
     return`<tr>
-      <td class="task-title">${esc(t.title)}</td>
+      <td class="task-title">${esc(t.title)}${nc}</td>
       <td><div class="assignee-cell"><span class="av ${m.cls}">${m.ini}</span>${m.name}</div></td>
       <td class="${ov?'overdue':''}">${fmtD(t.due)}${ov?' ⚠':''}</td>
       <td>${bPri(t.priority)}</td>
@@ -474,7 +502,7 @@ function renderTable(){
 
 // ── TASK CRUD ─────────────────────────────────────────────────────────────────
 function openAdd(){
-  editId=null;
+  editId=null; editNotes=[];
   document.getElementById('taskTitle2').textContent='New task';
   document.getElementById('tSaveBtn').textContent='Add task';
   document.getElementById('tTitle').value='';
@@ -482,12 +510,13 @@ function openAdd(){
   document.getElementById('tDue').value='';
   document.getElementById('tPriority').value='Medium';
   document.getElementById('tStatus').value='To do';
+  document.getElementById('notesSection').style.display='none';
   document.getElementById('taskModal').style.display='flex';
   document.getElementById('tTitle').focus();
 }
 function openEdit(id){
   const t=tasks.find(t=>t.id===id);if(!t)return;
-  editId=id;
+  editId=id; editNotes=t.notes?[...t.notes]:[];
   document.getElementById('taskTitle2').textContent='Edit task';
   document.getElementById('tSaveBtn').textContent='Save changes';
   document.getElementById('tTitle').value=t.title;
@@ -495,16 +524,19 @@ function openEdit(id){
   document.getElementById('tDue').value=t.due||'';
   document.getElementById('tPriority').value=t.priority;
   document.getElementById('tStatus').value=t.status;
+  document.getElementById('notesSection').style.display='block';
+  document.getElementById('noteInput').value='';
+  renderNotes();
   document.getElementById('taskModal').style.display='flex';
   document.getElementById('tTitle').focus();
 }
-function closeTask(){document.getElementById('taskModal').style.display='none';editId=null;}
+function closeTask(){document.getElementById('taskModal').style.display='none';editId=null;editNotes=[];}
 async function saveTask(){
   const title=document.getElementById('tTitle').value.trim();
   if(!title){document.getElementById('tTitle').focus();return;}
-  const d={title,assignee:document.getElementById('tAssignee').value,due:document.getElementById('tDue').value,priority:document.getElementById('tPriority').value,status:document.getElementById('tStatus').value};
+  const d={title,assignee:document.getElementById('tAssignee').value,due:document.getElementById('tDue').value,priority:document.getElementById('tPriority').value,status:document.getElementById('tStatus').value,notes:editNotes};
   if(editId!==null){const i=tasks.findIndex(t=>t.id===editId);tasks[i]={...tasks[i],...d};}
-  else tasks.unshift({id:nextId++,...d,created:Date.now()});
+  else tasks.unshift({id:nextId++,...d,notes:[],created:Date.now()});
   closeTask();renderAll();
   await saveTasks();
   toast(editId!==null?'Task updated':'Task added');
@@ -515,105 +547,202 @@ async function delTask(id){
   renderAll();await saveTasks();toast('Task deleted');
 }
 
+// ── NOTES ─────────────────────────────────────────────────────────────────────
+function renderNotes(){
+  const list=document.getElementById('noteList');
+  if(!editNotes.length){
+    list.innerHTML='<p class="note-empty">No notes yet.</p>';
+    return;
+  }
+  list.innerHTML=editNotes.map(n=>`
+    <div class="note-item">
+      <div class="note-meta">${esc(n.author)} · ${fmtDT(n.ts)}</div>
+      <div class="note-text">${esc(n.text)}</div>
+    </div>
+  `).join('');
+  list.scrollTop=list.scrollHeight;
+}
+async function addNote(){
+  const text=document.getElementById('noteInput').value.trim();
+  if(!text)return;
+  const note={text,author:currentUserName(),ts:Date.now()};
+  editNotes.push(note);
+  document.getElementById('noteInput').value='';
+  renderNotes();
+  // If editing an existing task, save immediately
+  if(editId!==null){
+    const i=tasks.findIndex(t=>t.id===editId);
+    if(i>=0){tasks[i].notes=editNotes;await saveTasks();toast('Note saved');}
+  }
+}
+
 // ── CSV ───────────────────────────────────────────────────────────────────────
 function exportCSV(){
-  const rows=[['Title','Assignee','Due Date','Priority','Status']];
-  tasks.forEach(t=>rows.push([`"${t.title.replace(/"/g,'""')}"`,mem(t.assignee).name,t.due||'',t.priority,t.status]));
+  const rows=[['Title','Assignee','Due Date','Priority','Status','Notes']];
+  tasks.forEach(t=>rows.push([
+    `"${t.title.replace(/"/g,'""')}"`,
+    mem(t.assignee).name,
+    t.due||'',
+    t.priority,
+    t.status,
+    t.notes&&t.notes.length?`"${t.notes.map(n=>n.text).join(' | ').replace(/"/g,'""')}"`:''
+  ]));
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
   a.download='magnify-tasks.csv';a.click();
 }
 
-// ── FATHOM ────────────────────────────────────────────────────────────────────
-function openFathom(){
-  fStep='select';fSelected=null;fPreview=null;
-  renderFathom();
-  document.getElementById('fathomModal').style.display='flex';
-  // Signal Claude to load meetings
-  window._fathomPending='load';
+// ── ZOOM IMPORT ───────────────────────────────────────────────────────────────
+function openZoom(){
+  zStep='paste'; zPreview=[];
+  renderZoom();
+  document.getElementById('zoomModal').style.display='flex';
 }
-function closeFathom(){
-  document.getElementById('fathomModal').style.display='none';
-  fMeetings=[];fSelected=null;fPreview=null;
+function closeZoom(){
+  document.getElementById('zoomModal').style.display='none';
 }
-function renderFathom(){
-  const el=document.getElementById('fathomInner');
-  if(fStep==='select'){
-    if(!fMeetings.length){
-      el.innerHTML=`<div class="loading-box"><div class="spinner"></div><p>Loading your meetings…</p><small>Fetching from Fathom via Claude</small></div>
-      <p style="font-size:12px;color:var(--text-secondary);text-align:center;margin-top:8px">👉 In the Claude chat below, type: <strong>FATHOM_LOAD_MEETINGS</strong></p>`;
-    } else {
-      el.innerHTML=`
-        <h2>Import from Fathom</h2>
-        <div class="infobox">Select a meeting to extract action items. Client and prospect items route to Cindy automatically. Tasks without a due date default to 1 week from today.</div>
-        <div class="meeting-list">${fMeetings.map(m=>`
-          <div class="meeting-item${fSelected&&fSelected.id===m.id?' selected':''}" onclick="selectMeeting(${m.id})">
-            <div class="meeting-title">${esc(m.title)}</div>
-            <div class="meeting-meta"><span>${m.date}</span><span>${esc(m.recorded_by)}</span>${m.action_item_count?`<span>${m.action_item_count} action item${m.action_item_count!==1?'s':''}</span>`:''}</div>
-          </div>`).join('')}
-        </div>
-        <div class="modal-actions">
-          <button class="btn" onclick="closeFathom()">Cancel</button>
-          <button class="btn btn-primary" onclick="doExtract()" ${!fSelected?'disabled':''}>Extract tasks ↗</button>
-        </div>`;
-    }
-  }
-  if(fStep==='loading'){
-    el.innerHTML=`<div class="loading-box"><div class="spinner"></div><p>Extracting action items…</p><small>Reading your meeting notes via Claude</small></div>
-    <p style="font-size:12px;color:var(--text-secondary);text-align:center;margin-top:8px">👉 In the Claude chat below, type: <strong>FATHOM_EXTRACT:${JSON.stringify(fSelected)}</strong></p>`;
-  }
-  if(fStep==='preview'&&fPreview){
+function renderZoom(){
+  const el=document.getElementById('zoomInner');
+  if(zStep==='paste'){
     el.innerHTML=`
-      <h2>Review ${fPreview.length} extracted task${fPreview.length!==1?'s':''}</h2>
-      <div style="overflow-y:auto;max-height:320px;margin-bottom:1rem">
+      <h2>Import from Zoom</h2>
+      <div class="infobox">After your Zoom meeting, open the AI Companion summary (it's emailed to you or available in your Zoom portal). Copy the full text and paste it below.</div>
+      <div class="fg">
+        <label>Paste Zoom AI Companion summary</label>
+        <textarea id="zoomPaste" style="min-height:200px;resize:vertical" placeholder="Paste the full meeting summary here…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeZoom()">Cancel</button>
+        <button class="btn btn-primary" onclick="extractZoom()">Extract action items →</button>
+      </div>`;
+    // Restore any previously pasted text
+    setTimeout(()=>{const el=document.getElementById('zoomPaste');if(el&&window._zoomText)el.value=window._zoomText;},0);
+  }
+  if(zStep==='preview'){
+    if(!zPreview.length){
+      el.innerHTML=`
+        <h2>No action items found</h2>
+        <div class="infobox">The summary didn't have a recognisable Action Items section. Try copying the section that lists tasks, or add tasks manually.</div>
+        <div class="modal-actions">
+          <button class="btn" onclick="zStep='paste';renderZoom()">← Try again</button>
+          <button class="btn" onclick="closeZoom()">Close</button>
+        </div>`;
+      return;
+    }
+    const noteIcon=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
+    el.innerHTML=`
+      <h2>Review ${zPreview.length} extracted task${zPreview.length!==1?'s':''}</h2>
+      <div class="infobox">Uncheck any tasks you don't want to add. Client/prospect items are routed to Cindy. Due dates default to one week from today.</div>
+      <div style="overflow-y:auto;max-height:300px;margin-bottom:1rem">
         <table class="prev-table">
-          <thead><tr><th>Task</th><th>Assignee</th><th>Due</th><th>Priority</th></tr></thead>
-          <tbody>${fPreview.map(t=>{const m=mem(t.assignee);return`<tr>
+          <thead><tr><th style="width:32px"></th><th>Task</th><th>Assignee</th><th>Due</th><th>Priority</th></tr></thead>
+          <tbody>${zPreview.map((t,i)=>{const m=mem(t.assignee);return`<tr>
+            <td><input type="checkbox" id="zc${i}" checked></td>
             <td>${esc(t.title)}</td>
             <td><div class="assignee-cell"><span class="av ${m.cls}" style="width:20px;height:20px;font-size:8px">${m.ini}</span>${m.name}</div></td>
             <td style="white-space:nowrap">${fmtD(t.due)}</td>
             <td>${bPri(t.priority)}</td>
-          </tr>`;}).join('')}</tbody>
+          </tr>`;}).join('')}
+          </tbody>
         </table>
       </div>
       <div class="modal-actions">
-        <button class="btn" onclick="closeFathom()">Cancel</button>
-        <button class="btn btn-primary" onclick="commitFathom()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
-          Add ${fPreview.length} task${fPreview.length!==1?'s':''}
-        </button>
+        <button class="btn" onclick="zStep='paste';renderZoom()">← Back</button>
+        <button class="btn btn-primary" onclick="commitZoom()">Add selected tasks</button>
       </div>`;
   }
 }
-function selectMeeting(id){fSelected=fMeetings.find(m=>m.id===id);renderFathom();}
-function doExtract(){if(!fSelected)return;fStep='loading';renderFathom();}
-async function commitFathom(){
-  fPreview.forEach(item=>tasks.unshift({id:nextId++,...item,status:'To do',created:Date.now()}));
+function extractZoom(){
+  const text=(document.getElementById('zoomPaste').value||'').trim();
+  if(!text){toast('Please paste a meeting summary first');return;}
+  window._zoomText=text;
+  zPreview=parseZoomSummary(text);
+  zStep='preview';
+  renderZoom();
+}
+function parseZoomSummary(text){
+  const lines=text.split('\n');
+  const items=[];
+  let inSection=false;
+
+  // Headings that signal an action-item section
+  const ACTION_START=/^(action items?|next steps?|to[- ]?dos?|tasks?|follow[- ]?ups?|commitments?)\s*:?\s*$/i;
+  // Headings that end the section
+  const SECTION_END=/^(summary|overview|key (points?|takeaways?|decisions?)|chapters?|topics?|agenda|attendees?|participants?|recording|transcript)\s*:?\s*$/i;
+  // Bullet / numbered line pattern
+  const BULLET=/^[\s]*(?:[•\-\*•–—]|\d+[\.\)])\s+(.+)$/;
+
+  for(const line of lines){
+    const trimmed=line.trim();
+    if(!trimmed)continue;
+    if(ACTION_START.test(trimmed)){inSection=true;continue;}
+    if(inSection&&SECTION_END.test(trimmed)){inSection=false;continue;}
+    if(inSection){
+      const m=BULLET.exec(line);
+      if(m){
+        const raw=m[1].trim();
+        if(raw.length>=5)items.push(parseActionItem(raw));
+      }
+    }
+  }
+
+  // Fallback: if no labelled section found, grab all bullet lines
+  if(!items.length){
+    for(const line of lines){
+      const m=BULLET.exec(line);
+      if(m){
+        const raw=m[1].trim();
+        if(raw.length>=10)items.push(parseActionItem(raw));
+      }
+    }
+  }
+  return items;
+}
+function parseActionItem(text){
+  // Detect assignee from team member first names
+  const nameMap=[
+    {patterns:[/\bscott\b/i],id:'sg'},
+    {patterns:[/\btammy\b/i],id:'tg'},
+    {patterns:[/\bcameron\b/i],id:'cg'},
+    // Cindy or anything suggesting a client/prospect goes to Cindy
+    {patterns:[/\bcindy\b/i,/\bclient\b/i,/\bprospect\b/i],id:'cm'},
+  ];
+  let assignee='';
+  for(const entry of nameMap){
+    if(entry.patterns.some(p=>p.test(text))){assignee=entry.id;break;}
+  }
+  // Strip common name-prefix patterns
+  let title=text
+    .replace(/^(scott|tammy|cameron|cindy)\s*[:–\-]\s*/i,'')
+    .replace(/^(scott|tammy|cameron|cindy)\s+will\s+/i,'')
+    .replace(/^(scott|tammy|cameron|cindy)\s+to\s+/i,'');
+  title=title.charAt(0).toUpperCase()+title.slice(1);
+  return{title,assignee,due:wk(),priority:'Medium'};
+}
+async function commitZoom(){
+  const selected=zPreview.filter((_,i)=>{
+    const cb=document.getElementById(`zc${i}`);
+    return cb&&cb.checked;
+  });
+  if(!selected.length){toast('No tasks selected');return;}
+  selected.forEach(item=>tasks.unshift({id:nextId++,...item,notes:[],status:'To do',created:Date.now()}));
   nextId=Math.max(nextId,...tasks.map(t=>t.id+1));
-  const n=fPreview.length;
-  closeFathom();renderAll();
+  const n=selected.length;
+  window._zoomText='';
+  closeZoom();renderAll();
   await saveTasks();
   toast(`${n} task${n!==1?'s':''} added`);
 }
 
-// Called externally by Claude
-window.loadFathomMeetings=function(json){
-  try{fMeetings=JSON.parse(json);fStep='select';renderFathom();}catch(e){console.error(e);}
-};
-window.loadFathomPreview=function(json){
-  try{
-    const items=JSON.parse(json);
-    if(!items.length){closeFathom();toast('No action items found in this meeting');return;}
-    fPreview=items.map(i=>({title:i.title||'Untitled',assignee:i.assignee||'',due:i.due||wk(),priority:i.priority||'Medium'}));
-    fStep='preview';renderFathom();
-  }catch(e){console.error(e);closeFathom();toast('Could not load preview');}
-};
-
 // ── KEYBOARD ──────────────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closeTask();closeFathom();}
+  if(e.key==='Escape'){closeTask();closeZoom();}
   if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){
     if(document.getElementById('taskModal').style.display!=='none')saveTask();
+  }
+  // Ctrl/Cmd+Enter in note textarea adds the note
+  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){
+    if(document.activeElement&&document.activeElement.id==='noteInput')addNote();
   }
 });
 
