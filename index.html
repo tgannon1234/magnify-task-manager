@@ -556,7 +556,7 @@ function renderNotes(){
   }
   list.innerHTML=editNotes.map(n=>`
     <div class="note-item">
-      <div class="note-meta">${esc(n.author)} · ${fmtDT(n.ts)}</div>
+      <div class="note-meta">${esc(n.author)} · ${fmtDT(n.ts||n.timestamp)}</div>
       <div class="note-text">${esc(n.text)}</div>
     </div>
   `).join('');
@@ -794,3 +794,4 @@ handleAuth();
 </script>
 </body>
 </html>
+
