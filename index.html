@@ -101,6 +101,14 @@
   th:nth-child(5),td:nth-child(5){ width:13%; }
   th:nth-child(6),td:nth-child(6){ width:11%; text-align:right; }
   .task-title { font-weight:500; word-break:break-word; }
+  .title-done { color:var(--text-secondary); text-decoration:line-through; }
+
+  /* Inline status dropdown */
+  select.status-select { padding:3px 24px 3px 10px; border:1px solid transparent; border-radius:20px; font-size:11px; font-weight:500; font-family:var(--font); cursor:pointer; appearance:none; -webkit-appearance:none; -moz-appearance:none; background-repeat:no-repeat; background-position:right 8px center; background-size:8px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B6965' stroke-width='3'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); }
+  select.status-select:focus { outline:none; border-color:var(--blue); }
+  .ss-todo { background-color:var(--grey-light); color:var(--grey); }
+  .ss-progress { background-color:var(--blue-light); color:var(--blue); }
+  .ss-done { background-color:var(--green-light); color:var(--green); }
   .row-actions { display:flex; gap:4px; justify-content:flex-end; opacity:0; }
   tbody tr:hover .row-actions { opacity:1; }
 
@@ -135,7 +143,6 @@
   .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:100; padding:1rem; }
   .modal { background:var(--bg); border-radius:var(--radius-lg); border:1px solid var(--border); padding:1.75rem; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); }
   .modal h2 { font-size:17px; font-weight:600; margin-bottom:1.25rem; }
-  .modal-wide { max-width:580px; }
   .fg { margin-bottom:1.1rem; }
   .fg label { display:block; font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:5px; text-transform:uppercase; letter-spacing:.06em; }
   .fg input,.fg select,.fg textarea { width:100%; padding:8px 11px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; font-family:var(--font); color:var(--text); background:var(--bg); }
@@ -156,18 +163,6 @@
   .note-add .fg { flex:1; margin-bottom:0; }
   .note-add textarea { min-height:60px; }
   .note-add .btn { flex-shrink:0; }
-
-  /* Zoom / import */
-  .prev-table { width:100%; border-collapse:collapse; font-size:12px; }
-  .prev-table th { background:var(--bg-secondary); padding:7px 10px; text-align:left; font-weight:600; color:var(--text-secondary); font-size:11px; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); }
-  .prev-table td { padding:8px 10px; border-bottom:1px solid var(--border-light); word-break:break-word; vertical-align:middle; }
-  .prev-table input[type=checkbox] { cursor:pointer; width:15px; height:15px; }
-
-  /* Info / loading */
-  .infobox { background:var(--blue-light); color:var(--blue-dark); border-radius:var(--radius); padding:10px 14px; font-size:13px; line-height:1.5; margin-bottom:1.1rem; }
-  .loading-box { text-align:center; padding:2.5rem 1.5rem; }
-  .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; margin:0 auto 14px; }
-  @keyframes spin { to { transform:rotate(360deg); } }
 
   /* Toast */
   .toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(10px); background:#1A1917; color:white; padding:10px 20px; border-radius:var(--radius); font-size:13px; font-weight:500; z-index:300; opacity:0; transition:opacity .25s,transform .25s; pointer-events:none; white-space:nowrap; }
@@ -245,10 +240,6 @@
         <option>High</option><option>Medium</option><option>Low</option>
       </select>
       <div class="toolbar-actions">
-        <button class="btn" onclick="openZoom()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.89L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
-          Import from Zoom
-        </button>
         <button class="btn" onclick="exportCSV()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export CSV
@@ -312,11 +303,6 @@
   </div>
 </div>
 
-<!-- Zoom import modal -->
-<div class="modal-backdrop" id="zoomModal" style="display:none" onclick="if(event.target===this)closeZoom()">
-  <div class="modal modal-wide" id="zoomInner"></div>
-</div>
-
 <div class="toast" id="toast"></div>
 
 <script>
@@ -338,7 +324,6 @@ const TEAM = [
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let token=null, tasks=[], nextId=100, editId=null, editNotes=[];
-let zStep='paste', zPreview=[];
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 function signIn(){
@@ -432,12 +417,15 @@ async function saveTasks(){
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function mem(id){return TEAM.find(m=>m.id===id)||{name:'Unassigned',ini:'?',cls:'av-un'};}
-function wk(){const d=new Date();d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);}
 function fmtD(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'});}
 function fmtDT(ts){return new Date(ts).toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
 function isOD(d){if(!d)return false;return new Date(d+'T00:00:00')<new Date(new Date().toDateString());}
 function bPri(p){const m={High:'b-high',Medium:'b-medium',Low:'b-low'};return`<span class="badge ${m[p]||'b-medium'}">${p||'Medium'}</span>`;}
-function bSta(s){const m={'To do':'b-todo','In progress':'b-progress','Done':'b-done','Blocked':'b-blocked'};return`<span class="badge ${m[s]||'b-todo'}">${s}</span>`;}
+function selSta(t){
+  const m={'To do':'ss-todo','In progress':'ss-progress','Done':'ss-done'};
+  const opts=['To do','In progress','Done'].map(s=>`<option${s===t.status?' selected':''}>${s}</option>`).join('');
+  return`<select class="status-select ${m[t.status]||'ss-todo'}" onchange="quickStatus(${t.id},this.value)" title="Change status">${opts}</select>`;
+}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 function currentUserName(){const el=document.getElementById('userName');return el?el.textContent||'Team':'Team';}
@@ -482,11 +470,11 @@ function renderTable(){
     const m=mem(t.assignee),ov=isOD(t.due)&&t.status!=='Done';
     const nc=(t.notes&&t.notes.length)?`<span class="note-chip" title="${t.notes.length} note${t.notes.length!==1?'s':''}">${noteIcon}${t.notes.length}</span>`:'';
     return`<tr>
-      <td class="task-title">${esc(t.title)}${nc}</td>
+      <td class="task-title"><span class="${t.status==='Done'?'title-done':''}">${esc(t.title)}</span>${nc}</td>
       <td><div class="assignee-cell"><span class="av ${m.cls}">${m.ini}</span>${m.name}</div></td>
       <td class="${ov?'overdue':''}">${fmtD(t.due)}${ov?' ⚠':''}</td>
       <td>${bPri(t.priority)}</td>
-      <td>${bSta(t.status)}</td>
+      <td>${selSta(t)}</td>
       <td><div class="row-actions">
         <button class="btn btn-sm" onclick="openEdit(${t.id})" title="Edit">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -546,6 +534,13 @@ async function delTask(id){
   tasks=tasks.filter(t=>t.id!==id);
   renderAll();await saveTasks();toast('Task deleted');
 }
+async function quickStatus(id,status){
+  const t=tasks.find(t=>t.id===id);if(!t)return;
+  if(t.status===status)return;
+  t.status=status;
+  renderAll();await saveTasks();
+  toast('Status updated: '+status);
+}
 
 // ── NOTES ─────────────────────────────────────────────────────────────────────
 function renderNotes(){
@@ -592,194 +587,9 @@ function exportCSV(){
   a.download='magnify-tasks.csv';a.click();
 }
 
-// ── ZOOM IMPORT ───────────────────────────────────────────────────────────────
-function openZoom(){
-  zStep='paste'; zPreview=[];
-  renderZoom();
-  document.getElementById('zoomModal').style.display='flex';
-}
-function closeZoom(){
-  document.getElementById('zoomModal').style.display='none';
-}
-function renderZoom(){
-  const el=document.getElementById('zoomInner');
-  if(zStep==='paste'){
-    el.innerHTML=`
-      <h2>Import from Zoom</h2>
-      <div class="infobox">After your Zoom meeting, open the AI Companion summary (it's emailed to you or available in your Zoom portal). Copy the full text and paste it below.</div>
-      <div class="fg">
-        <label>Paste Zoom AI Companion summary</label>
-        <textarea id="zoomPaste" style="min-height:200px;resize:vertical" placeholder="Paste the full meeting summary here…"></textarea>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="closeZoom()">Cancel</button>
-        <button class="btn btn-primary" onclick="extractZoom()">Extract action items →</button>
-      </div>`;
-    // Restore any previously pasted text
-    setTimeout(()=>{const el=document.getElementById('zoomPaste');if(el&&window._zoomText)el.value=window._zoomText;},0);
-  }
-  if(zStep==='preview'){
-    if(!zPreview.length){
-      el.innerHTML=`
-        <h2>No action items found</h2>
-        <div class="infobox">The summary didn't have a recognisable Action Items section. Try copying the section that lists tasks, or add tasks manually.</div>
-        <div class="modal-actions">
-          <button class="btn" onclick="zStep='paste';renderZoom()">← Try again</button>
-          <button class="btn" onclick="closeZoom()">Close</button>
-        </div>`;
-      return;
-    }
-    const noteIcon=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
-    el.innerHTML=`
-      <h2>Review ${zPreview.length} extracted task${zPreview.length!==1?'s':''}</h2>
-      <div class="infobox">Uncheck any tasks you don't want to add. Client/prospect items are routed to Cindy. Due dates default to one week from today.</div>
-      <div style="overflow-y:auto;max-height:300px;margin-bottom:1rem">
-        <table class="prev-table">
-          <thead><tr><th style="width:32px"></th><th>Task</th><th>Assignee</th><th>Due</th><th>Priority</th></tr></thead>
-          <tbody>${zPreview.map((t,i)=>{const m=mem(t.assignee);return`<tr>
-            <td><input type="checkbox" id="zc${i}" checked></td>
-            <td>${esc(t.title)}</td>
-            <td><div class="assignee-cell"><span class="av ${m.cls}" style="width:20px;height:20px;font-size:8px">${m.ini}</span>${m.name}</div></td>
-            <td style="white-space:nowrap">${fmtD(t.due)}</td>
-            <td>${bPri(t.priority)}</td>
-          </tr>`;}).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="zStep='paste';renderZoom()">← Back</button>
-        <button class="btn btn-primary" onclick="commitZoom()">Add selected tasks</button>
-      </div>`;
-  }
-}
-function extractZoom(){
-  const text=(document.getElementById('zoomPaste').value||'').trim();
-  if(!text){toast('Please paste a meeting summary first');return;}
-  window._zoomText=text;
-  zPreview=parseZoomSummary(text);
-  zStep='preview';
-  renderZoom();
-}
-function extractClientName(text){
-  const lines=text.split('\n');
-  const teamFirst=['scott','tammy','cameron','cindy'];
-
-  // 1. Best source: Participants line — exclude team members, return the outsider
-  const partLine=lines.find(l=>/^participants?\s*:/i.test(l.trim()));
-  if(partLine){
-    const names=partLine.replace(/^participants?\s*:\s*/i,'')
-      .split(/[,;]+/)
-      .map(n=>n.trim())
-      .filter(n=>n.length>1);
-    const client=names.find(n=>!teamFirst.some(fn=>n.toLowerCase().startsWith(fn)));
-    if(client)return client;
-  }
-
-  // 2. Fallback: first 8 lines, various title patterns
-  const head=lines.slice(0,8);
-  for(const line of head){
-    const t=line.trim();
-    if(!t)continue;
-    // "Meeting with John Smith"
-    const withMatch=t.match(/(?:meeting|call|appointment|session|catch[- ]?up|intro|review)\s+with\s+([A-Z][a-zA-Zé'\-]+(?:\s+[A-Z][a-zA-Zé'\-]+)+)/i);
-    if(withMatch)return withMatch[1];
-    // "John Smith - Topic" — exactly two leading capitalized words before a dash
-    const dashStart=t.match(/^([A-Z][a-zA-Zé'\-]+\s+[A-Z][a-zA-Zé'\-]+)\s*[-–—]/);
-    if(dashStart)return dashStart[1];
-    // "Topic - John Smith" — exactly two trailing capitalized words after a dash
-    const dashEnd=t.match(/[-–—]\s*([A-Z][a-zA-Zé'\-]+\s+[A-Z][a-zA-Zé'\-]+)$/);
-    if(dashEnd)return dashEnd[1];
-    // Bare "First Last" (exactly two capitalized words) on its own line
-    const bare=t.match(/^([A-Z][a-zA-Zé'\-]+\s+[A-Z][a-zA-Zé'\-]+)$/);
-    if(bare&&!/(meeting|call|zoom|review|session|summary|action|notes?|agenda)/i.test(bare[1]))return bare[1];
-  }
-  return null;
-}
-function parseZoomSummary(text){
-  const lines=text.split('\n');
-  const items=[];
-  let inSection=false;
-  const clientName=extractClientName(text);
-
-  // Headings that signal an action-item section
-  const ACTION_START=/^(action items?|next steps?|to[- ]?dos?|tasks?|follow[- ]?ups?|commitments?)\s*:?\s*$/i;
-  // Headings that end the section
-  const SECTION_END=/^(summary|overview|key (points?|takeaways?|decisions?)|chapters?|topics?|agenda|attendees?|participants?|recording|transcript)\s*:?\s*$/i;
-  // Bullet / numbered line pattern
-  const BULLET=/^[\s]*(?:[•\-\*•–—]|\d+[\.\)])\s+(.+)$/;
-
-  for(const line of lines){
-    const trimmed=line.trim();
-    if(!trimmed)continue;
-    if(ACTION_START.test(trimmed)){inSection=true;continue;}
-    if(inSection&&SECTION_END.test(trimmed)){inSection=false;continue;}
-    if(inSection){
-      const m=BULLET.exec(line);
-      if(m){
-        const raw=m[1].trim();
-        if(raw.length>=5)items.push(parseActionItem(raw,clientName));
-      }
-    }
-  }
-
-  // Fallback: if no labelled section found, grab all bullet lines
-  if(!items.length){
-    for(const line of lines){
-      const m=BULLET.exec(line);
-      if(m){
-        const raw=m[1].trim();
-        if(raw.length>=10)items.push(parseActionItem(raw,clientName));
-      }
-    }
-  }
-  return items;
-}
-function parseActionItem(text,clientName){
-  const clientFirst=clientName?clientName.split(' ')[0]:null;
-  // Build assignee detection map — include client's first name dynamically
-  const cindy=[/\bcindy\b/i,/\bclient\b/i,/\bprospect\b/i];
-  if(clientFirst)cindy.push(new RegExp(`\\b${clientFirst}\\b`,'i'));
-  const nameMap=[
-    {patterns:[/\bscott\b/i],id:'sg'},
-    {patterns:[/\btammy\b/i],id:'tg'},
-    {patterns:[/\bcameron\b/i],id:'cg'},
-    {patterns:cindy,id:'cm'},
-  ];
-  let assignee='';
-  for(const entry of nameMap){
-    if(entry.patterns.some(p=>p.test(text))){assignee=entry.id;break;}
-  }
-  // Strip common name-prefix patterns (team + client first name)
-  const teamNames='scott|tammy|cameron|cindy'+(clientFirst?'|'+clientFirst.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'):'');
-  const pfx=new RegExp(`^(${teamNames})\\s*[:–\\-]\\s*`,'i');
-  const will=new RegExp(`^(${teamNames})\\s+will\\s+`,'i');
-  const to=new RegExp(`^(${teamNames})\\s+to\\s+`,'i');
-  let title=text.replace(pfx,'').replace(will,'').replace(to,'');
-  title=title.charAt(0).toUpperCase()+title.slice(1);
-  // Prefix client/prospect tasks with the client's full name
-  if(assignee==='cm'&&clientName){
-    title=`Follow up on - ${clientName}: ${title}`;
-  }
-  return{title,assignee,due:wk(),priority:'Medium'};
-}
-async function commitZoom(){
-  const selected=zPreview.filter((_,i)=>{
-    const cb=document.getElementById(`zc${i}`);
-    return cb&&cb.checked;
-  });
-  if(!selected.length){toast('No tasks selected');return;}
-  selected.forEach(item=>tasks.unshift({id:nextId++,...item,notes:[],status:'To do',created:Date.now()}));
-  nextId=Math.max(nextId,...tasks.map(t=>t.id+1));
-  const n=selected.length;
-  window._zoomText='';
-  closeZoom();renderAll();
-  await saveTasks();
-  toast(`${n} task${n!==1?'s':''} added`);
-}
-
 // ── KEYBOARD ──────────────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closeTask();closeZoom();}
+  if(e.key==='Escape'){closeTask();}
   if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){
     if(document.getElementById('taskModal').style.display!=='none')saveTask();
   }
@@ -794,4 +604,3 @@ handleAuth();
 </script>
 </body>
 </html>
-
