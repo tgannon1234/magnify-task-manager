@@ -90,6 +90,9 @@
   .table-wrap { background:var(--bg); border-radius:var(--radius-lg); border:1px solid var(--border); overflow:hidden; box-shadow:var(--shadow); }
   table { width:100%; border-collapse:collapse; table-layout:fixed; }
   thead th { font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.06em; padding:10px 14px; border-bottom:1px solid var(--border); background:var(--bg-secondary); text-align:left; }
+  .th-sort { cursor:pointer; user-select:none; }
+  .th-sort:hover { color:var(--text); }
+  .sort-arrow { font-size:9px; }
   tbody tr { border-bottom:1px solid var(--border-light); }
   tbody tr:last-child { border-bottom:none; }
   tbody tr:hover { background:var(--bg-secondary); }
@@ -232,6 +235,7 @@
         <option value="cm">Cindy Metz</option>
       </select>
       <select class="filter" id="fStatus" onchange="renderTable()">
+        <option value="active" selected>Active tasks</option>
         <option value="all">All statuses</option>
         <option>To do</option><option>In progress</option><option>Done</option>
       </select>
@@ -253,7 +257,7 @@
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Task</th><th>Assignee</th><th>Due date</th><th>Priority</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Task</th><th>Assignee</th><th class="th-sort" onclick="toggleSortDue()" title="Sort by due date">Due date <span class="sort-arrow" id="sortArrow"></span></th><th>Priority</th><th>Status</th><th></th></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
@@ -324,6 +328,7 @@ const TEAM = [
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let token=null, tasks=[], nextId=100, editId=null, editNotes=[];
+let sortDue=null; // null = no sort, 'asc' or 'desc'
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 function signIn(){
@@ -438,11 +443,17 @@ function filtered(){
   const fp=document.getElementById('fPriority').value;
   return tasks.filter(t=>{
     if(fa!=='all'&&t.assignee!==fa)return false;
-    if(fs!=='all'&&t.status!==fs)return false;
+    if(fs==='active'){if(t.status==='Done')return false;}
+    else if(fs!=='all'&&t.status!==fs)return false;
     if(fp!=='all'&&t.priority!==fp)return false;
     if(q&&!t.title.toLowerCase().includes(q))return false;
     return true;
   });
+}
+function toggleSortDue(){
+  sortDue=sortDue==='asc'?'desc':'asc';
+  document.getElementById('sortArrow').textContent=sortDue==='asc'?'▲':'▼';
+  renderTable();
 }
 function renderAll(){renderStats();renderTable();}
 function renderStats(){
@@ -458,6 +469,14 @@ function renderStats(){
 }
 function renderTable(){
   const ft=filtered();
+  if(sortDue){
+    ft.sort((a,b)=>{
+      if(!a.due&&!b.due)return 0;
+      if(!a.due)return 1;   // tasks without a due date always sort last
+      if(!b.due)return -1;
+      return sortDue==='asc'?a.due.localeCompare(b.due):b.due.localeCompare(a.due);
+    });
+  }
   const tb=document.getElementById('tbody');
   if(!ft.length){
     tb.innerHTML=`<tr><td colspan="6"><div class="empty">
